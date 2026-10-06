@@ -6,6 +6,24 @@
 
 pid_t arb,a,b,x,y,z;
 
+void pstree(){
+	char cadArb[100];
+	sprintf(cadArb, "%d", arb);
+    pid_t comandoPstree;
+    comandoPstree=fork();
+	if(comandoPstree == 0){
+		// el proceso se convierte en el comando.
+		execlp("pstree", "pstree", "-c", cadArb, NULL);
+	}
+	else{
+		wait(NULL); // para que el hijo acabe el comando
+		kill(arb, SIGUSR1);	// para que inicie la destruccion del arbo.
+		pause();	
+	}
+}
+
+
+
 void vacio(){
     //manejador de señales
 }
@@ -25,7 +43,7 @@ void run_processX(){
         printf("Soy el proceso X mi pid es %d. Mi padre es %d. Mi abuelo es %d. Mi bisabuelo %d\n", getpid(), b, a, arb);
         signal(SIGUSR2,vacio);
         pause();
-        printf("Soy Y y muero");
+        printf("Soy X y muero\n");
         exit(0);
     }
 }
@@ -36,7 +54,7 @@ void run_processY(){
         printf("Soy el proceso X mi pid es %d. Mi padre es %d. Mi abuelo es %d. Mi bisabuelo %d\n", getpid(), b, a, arb);
         signal(SIGUSR2,vacio);
         pause();
-        printf("Soy Y y muero");
+        printf("Soy Y y muero\n");
         exit(0);
     }
 }
@@ -45,13 +63,13 @@ void run_processZ(int tiempo){
      z=fork();
         if(z==0){
             printf("Soy el proceso Z: mi pid es %d. Mi padre es %d. Mi abuelo es %d. Mi bisabuelo %d\n", getpid(), b, a, arb);
-            signal(SIGALARM,vacio);
+            signal(SIGALRM,vacio);
             alarm(tiempo);
             pause();
-            kill(a,SIGUSR2); // llamo a a para que ejecute el pstree y empieze con la destrucción controlada del árbol
+            kill(a,SIGUSR1); // llamo a a para que ejecute el pstree y empieze con la destrucción controlada del árbol
             signal(SIGUSR2,vacio);
             pause();
-            printf("Soy Z y muero");
+            printf("Soy Z y muero\n");
             exit(0);
 
             }
@@ -67,7 +85,7 @@ int main(int argc,char* argv[]){
     else{
         arb=getpid();
         printf("Soy el proceso ejec: mi pid es %d\n");
-        tiempo=argv[1];
+        tiempo=atoi(argv[1]);
 
         a=fork();
         if(a!=0){
