@@ -51,6 +51,7 @@ int main(int argc, char* argv[]){
         }
     }
     else{
+        signal(SIGALRM, alarm);
         alarm(1);
         pause();                   // da tiempo a crear el árbol y a que las hojas instalen su manejador
 
