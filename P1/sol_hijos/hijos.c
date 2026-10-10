@@ -21,6 +21,14 @@ int *conectarMemoria(int vector) {
     return (int *) shmat(vector, 0, 0);
 }
 
+void desconectarMemoria(int *vector) {
+    shmdt(vector);
+}
+
+void borrarMemoria(int vector) {
+    shmctl(vector, IPC_RMID, NULL);
+}
+
 /* ---------- Impresión ---------- */
 
 void imprimirAncestros(int i, int *vx) {
@@ -113,5 +121,15 @@ int main(int argc, char *argv[]) {
         crearHijosFinales(y, vy);
         }
     }
+
+    desconectarMemoria(vx);
+    desconectarMemoria(vy);
+
+    // solo el super padre la borra, porque es el último en terminar
+    if (i == 1) {
+        borrarMemoria(vectorX);
+        borrarMemoria(vectorY);
+    }
+
     return 0;
 }  

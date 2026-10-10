@@ -11,13 +11,18 @@ void partir(char *nombre, int tamanyo);
 void prepararNombreTrozo(char *ficheroTrozo, char *nombre, int i);
 void ejecutarHijo(int canal[], char *nombre, int i, char *buffer, int tamanyo);
 void esperarHijos(int totalTrozos);
+int calcularTotalTrozos(char nombre[], int tamanyo);
+int crearTrozos(int entrada, char nombre[], int totalTrozos, char *buffer, int tamanyo);
+void escribirTrozoEnTuberia(int entrada, int canal[], char *buffer, int tamanyo);
+
+
 
 int main(int argc, char *argv[]){
 	if(argc != 3){	
 		printf("Error. Uso: %s fichero tam_trozo\n", argv[0]);
 	}
 	else{
-		partir(argv[1], atoi(argv[2])); // nombre del fichero y tamaño.
+		partir(argv[1], atoi(argv[2])); 
 	}
 	return 0;
 }
@@ -25,49 +30,67 @@ int main(int argc, char *argv[]){
 
 
 void partir(char nombre[], int tamanyo){
-	int i;	
-	int canal[2]; // = {lectura, escritura}
-	char ficheroTrozo[50];
-	int entrada, salida; 
-	struct stat propiedades; 	// propiedades del fichero
-	int 	totalTrozos, 		// trozos que se van a generar 
-		bytesLeidos; 		// bytes leidos de la tuberia
- 	char *buffer;		
+    int i;
+    int entrada;
+    int totalTrozos;    
+    char *buffer;
 
-	buffer = (char *) malloc(sizeof(char) * tamanyo);	// es el vector de caracteres (bytes) que utiliza el padre para leer del fichero original.
-	entrada = open(nombre, O_RDONLY); // PADRE: ABRE EL FICHERO EN MODO EN LECTURA.
-	if(entrada < 0){
-		printf("Error. No existe el fichero\n");
-	}
-	else{
-		stat(nombre, &propiedades);	// le paso a stat la direccion de la variable propfichero para que me la rellene con la info del fichero.
-		totalTrozos = propiedades.st_size/tamanyo;	// el numero de trozos a leer = total del fichero / total del trozo
-		if(propiedades.st_size % tamanyo != 0){
-			totalTrozos++; 	// si el tamaño del fichero no es multiplo del tamaño del trozo, hace falta un trozo para el resto... :)
-		}
-		for(i = 0; i < totalTrozos; i++){
-			pipe(canal); 		// crea la tuberia distinta para cada hijo.
-			if(fork() != 0){
-				bytesLeidos = read(entrada, buffer, tamanyo); 	// el padre lee del fichero
-				write(canal[1], buffer, bytesLeidos);			// y escribe en el tubo.
-			}
-			else{ 
-				ejecutarHijo(canal, nombre, i, buffer, tamanyo);
-				break;
-			}
-		}
-		if(i == totalTrozos){
-			free(buffer);
-			// bucle en el que el padre espera a los hijos.
-			esperarHijos(totalTrozos);
-		}
-	}
+    buffer = (char *) malloc(sizeof(char) * tamanyo);   
+    entrada = open(nombre, O_RDONLY); 
+    if(entrada < 0){
+        printf("Error. No existe el fichero\n");
+    }
+    else{
+        totalTrozos = calcularTotalTrozos(nombre, tamanyo);
+        i = crearTrozos(entrada, nombre, totalTrozos, buffer, tamanyo);
+        if(i == totalTrozos){
+            free(buffer);
+            // bucle en el que el padre espera a los hijos.
+            esperarHijos(totalTrozos);
+        }
+    }
 }
 
+int calcularTotalTrozos(char nombre[], int tamanyo){
+    struct stat propiedades;    // propiedades del fichero
+    int totalTrozos;
+
+    stat(nombre, &propiedades); 
+    totalTrozos = propiedades.st_size/tamanyo;  
+    if(propiedades.st_size % tamanyo != 0){
+        totalTrozos++;  
+    }
+    return totalTrozos;
+}
+
+// Devuelve i: totalTrozos en el padre, y menor que totalTrozos en un hijo.
+int crearTrozos(int entrada, char nombre[], int totalTrozos, char *buffer, int tamanyo){
+    int i;
+    int canal[2]; // = {lectura, escritura}
+
+    for(i = 0; i < totalTrozos; i++){
+        pipe(canal);        
+        if(fork() != 0){
+            escribirTrozoEnTuberia(entrada, canal, buffer, tamanyo);
+        }
+        else{
+            ejecutarHijo(canal, nombre, i, buffer, tamanyo);
+            break;
+        }
+    }
+    return i;
+}
+
+void escribirTrozoEnTuberia(int entrada, int canal[], char *buffer, int tamanyo){
+    int bytesLeidos;    
+
+    bytesLeidos = read(entrada, buffer, tamanyo);  
+    write(canal[1], buffer, bytesLeidos);           
+}
 
 void prepararNombreTrozo(char *ficheroTrozo, char *nombre, int i){
-	// creo el nombre del fichero nombre.h00, nombre
-	if(i < 10){ // si es menor que 10, le pongo un 0 delante.
+	
+	if(i < 10){ 
 		sprintf(ficheroTrozo, "%s.h0%d", nombre, i);
 	}
 	else{
@@ -77,20 +100,25 @@ void prepararNombreTrozo(char *ficheroTrozo, char *nombre, int i){
 
 
 void ejecutarHijo(int canal[], char *nombre, int i, char *buffer, int tamanyo){
-	int salida;
-	int bytesLeidos;
-	char ficheroTrozo[50];
+    int salida;
+    int bytesLeidos;
+    int totalLeidos = 0;
+    char ficheroTrozo[50];
 
-	prepararNombreTrozo(ficheroTrozo, nombre, i);
-	salida = creat(ficheroTrozo, 0666);	
-	// aqui habria que hacer un bucle hasta que el hijo consiguiera leer
-	// del tubo todo lo que tiene.
-	//////////////////// bucle mientras que no lea todos los que queria leer.
-	bytesLeidos = read(canal[0], buffer, tamanyo);		// lee del tubo			
-	write(salida, buffer, bytesLeidos);			// escribe en el fichero
-	/////////////////////
-	close(salida);
-	free(buffer);
+    prepararNombreTrozo(ficheroTrozo, nombre, i);
+    salida = creat(ficheroTrozo, 0666);
+
+    
+    do {
+        bytesLeidos = read(canal[0], buffer, tamanyo);  
+        if (bytesLeidos > 0) {
+            write(salida, buffer, bytesLeidos);         
+            totalLeidos += bytesLeidos;
+        }
+    } while (bytesLeidos > 0 && totalLeidos < tamanyo);
+
+    close(salida);
+    free(buffer);
 }
 
 

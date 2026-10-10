@@ -72,11 +72,12 @@ void comportamientoPadre(int y){
 
     signal(SIGALRM, manejador);
     alarm(1);
-    pause();                      // da tiempo a crear el árbol y a que las hojas instalen su manejador
+    pause();                      // da tiempo a crear el árbol 
 
     mostrarArbol();
 
-    kill(0, SIGUSR1);             // señal a todo el grupo: solo las hojas la tratan
+    kill(0, SIGUSR1);             // señal a todo el grupo: solo las hojas 
+                                   //(último proceso de la rama)la tratan
 
     for(i=0;i<y;i++){
         wait(NULL);
@@ -98,7 +99,7 @@ int main(int argc, char* argv[]){
     x=atoi(argv[1]);
     y=atoi(argv[2]);
 
-    signal(SIGUSR1, SIG_IGN);     // todos ignoran SIGUSR1 (se hereda); solo las hojas la capturarán
+    signal(SIGUSR1, SIG_IGN);     // Para que solo hagan SIGUSR1 las hojas.
 
     pid_y=crearColumnas(y);
     j=crearFilas(x, pid_y);
