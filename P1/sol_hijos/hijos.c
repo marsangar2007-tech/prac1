@@ -11,7 +11,7 @@ pid_t pid_sp, pid;
 
 void despierta() {}
 
-/* ---------- Memoria compartida ---------- */
+
 
 int crearMemoria(int elementos) {
     return shmget(IPC_PRIVATE, sizeof(int) * elementos, IPC_CREAT | 0666);
@@ -29,15 +29,7 @@ void borrarMemoria(int vector) {
     shmctl(vector, IPC_RMID, NULL);
 }
 
-/* ---------- Impresión ---------- */
 
-void imprimirAncestros(int i, int *vx) {
-    printf("%d", pid_sp);
-    for (int j = 0; j < i - 1; j++) {
-        printf(", %d", vx[j]);
-    }
-    printf("\n");
-}
 
 void imprimirSuperPadre(int y, int *vy) {
     int i;
@@ -51,7 +43,7 @@ void imprimirSuperPadre(int y, int *vy) {
     printf("\n");
 }
 
-/* ---------- Creación de procesos ---------- */
+
 
 /* Cadena de x hijos anidados. Devuelve el valor de i con el que sale del bucle. */
 int crearCadenaHijos(int x, int *vx) {
@@ -62,21 +54,31 @@ int crearCadenaHijos(int x, int *vx) {
             
             wait(NULL);
             break;
-        } else {
-            vx[i - 1] = getpid();
-            imprimirAncestros(i, vx);
-        }
+        } 
+        
     }
     return i;
 }
 
+void imprimirSubhijo (int x, int *vx){
+    printf("Soy el subhijo %d, mis padres son: ", getpid());
+    for (int j = 0; j < x; j++) {
+        printf("%d", vx[j]);
+        if (j != x - 1) {
+            printf(", ");
+        }
+    }
+    printf("\n");
+}
+
 /* Hijos finales: los crea el último proceso de la cadena. */
-void crearHijosFinales(int y, int *vy) {
+void crearHijosFinales(int y, int *vy, int x, int *vx) {
     int i;
     for (i = 1; i <= y; i++) {
         pid = fork();
         if (pid == 0) {
             vy[i - 1] = getpid();
+            imprimirSubhijo(x, vx);
             signal(SIGALRM, despierta);
             alarm(10);
             pause();
@@ -87,10 +89,11 @@ void crearHijosFinales(int y, int *vy) {
         for (i = 1; i <= y; i++) {
             wait(NULL);
         }
+        
     }
 }
 
-/* ---------- main ---------- */
+
 
 int main(int argc, char *argv[]) {
     int i, x, y, vectorX, vectorY;
@@ -118,7 +121,7 @@ int main(int argc, char *argv[]) {
     } 
     else {
         if (i == x + 1) {
-        crearHijosFinales(y, vy);
+        crearHijosFinales(y, vy, x, vx);
         }
     }
 
